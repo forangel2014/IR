@@ -11,6 +11,6 @@ class BertScoringModel(torch.nn.Module):
         self.bert = BertModel.from_pretrained(model_name)
         self.linear = torch.nn.Linear(self.config.hidden_size, 1)
 
-    def forward(self, ids):
-        output = self.bert(ids)[0]
+    def forward(self, ids, masks):
+        output = self.bert(input_ids=ids, attention_mask=masks)[0]
         return torch.sigmoid(self.linear(output[:,0,:]))

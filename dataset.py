@@ -23,8 +23,9 @@ class PQDataset(Dataset):
         triple = self.train_triples[n]
         query = self.id2queries[triple[0]]
         passage = self.id2passages[triple[2-k]]
-        text = '[CLS] ' + query + ' [SEP] ' + passage
-        ids = self.tokenizer.encode(text, max_length=self.max_len, return_tensors='pt')
+        text = query + ' [SEP] ' + passage
+        ids = self.tokenizer.encode(text, max_length=self.max_len, return_tensors='pt', add_special_tokens=True)
         pad_ids = torch.zeros([1, self.max_len - ids.shape[1]])
+        masks = torch.cat([torch.ones_like(ids).view(1,-1), pad_ids], axis=1)[0]
         ids = torch.cat([ids, pad_ids], axis=1)[0]
-        return ids, torch.tensor([k])
+        return ids, masks, torch.tensor([k])

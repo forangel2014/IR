@@ -1,7 +1,10 @@
+import matplotlib.pyplot as plt
+import numpy as np
 from dataset import PQDataset
 from torch.utils.data import DataLoader
 from model import *
-from transformers import BertTokenizer, BertConfig, BertForSequenceClassification
+import os
+from transformers import BertTokenizer, BertConfig
 
 train_passages_file = 'collection.train.sampled.tsv' # qid - query
 train_queries_file = 'queries.train.sampled.tsv' # pid - passage
@@ -43,6 +46,12 @@ def parse_top1000_file(filename):
                 qid2pid[qid].append(pid)
     return id2queries, id2passages, qid2pid
 
+def plot_curve(res):
+    plt.figure()
+    steps = np.array(range(len(res)))
+    plt.plot(steps, res)
+    plt.show()
+
 id2passages = parse_pq_file(train_passages_file)
 id2queries = parse_pq_file(train_queries_file)
 train_triples = parse_triple_file(train_triples_file)
@@ -52,34 +61,62 @@ bert_config = BertConfig.from_pretrained(model_name)
 #model = BertForSequenceClassification.from_pretrained(model_name).cuda()
 tokenizer = BertTokenizer.from_pretrained(model_name)
 
-dataset = PQDataset(id2passages, id2queries, train_triples, tokenizer, max_len=160)
-dataloader = DataLoader(dataset, batch_size=10, shuffle=True)
+#hyper-parameters
+max_len = 160
+batch_size = 10
+epoch = 10
+lr = 1e-5
+skip_train = False
+sys_name = 'Bert_base'
+dir_out = './test_result/' + sys_name + '/'
+res_file = 'res20'
+os.makedirs(dir_out, exist_ok=True)
+
+dataset = PQDataset(id2passages, id2queries, train_triples, tokenizer, max_len=max_len)
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 model = BertScoringModel(model_name).cuda()
-#model.bert.train()
-optmizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+optmizer = torch.optim.Adam(model.parameters(), lr=lr)
+loss_list = []
 
-for i, [ids, labels] in enumerate(dataloader):
-    optmizer.zero_grad()
-    ids = ids.long().cuda()
-    labels = labels.cuda()
-    #output = model(ids, labels)[0]
-    output = model(ids)
-    #loss = torch.sum(output[:,0])
-    #loss = -torch.sum(labels*torch.log(output)+(1-labels)*torch.log(1-output))
-    loss = torch.sum((labels-output)**2)
-    loss.backward()
-    print(loss)
-    optmizer.step()
+if not skip_train:
+    for e in range(epoch):
+        model.bert.train()
+        for i, [ids, masks, labels] in enumerate(dataloader):
+            optmizer.zero_grad()
+            ids = ids.long().cuda()
+            masks = masks.cuda()
+            labels = labels.cuda()
+            output = model(ids, masks)
+            loss = -torch.sum(labels*torch.log(output)+(1-labels)*torch.log(1-output))
+            #loss = torch.sum((labels-output)**2)
+            loss.backward()
+            optmizer.step()
+            print(loss)
+            loss_list.append(loss.detach().cpu().numpy())
 
-print("finish training")
+        print("finish training epoch " + str(e))
 
-model.bert.eval()
-id2queries, id2passages, qid2pid = parse_top1000_file(validation_top_file)
-model.read_data(id2passages, id2queries)
-for qid in qid2pid.keys():
-    for pid in qid2pid[qid]:
-        with torch.no_grad():
-            loss, _ = model([qid, pid, 1])
-            score = -loss
-            print(score)
+        model.bert.eval()
+        id2queries, id2passages, qid2pid = parse_top1000_file(test_top_file)
+        with open(dir_out + res_file + '_epoch' + str(e), 'w') as f:
+            for qid in qid2pid.keys():
+                pid2score = {}
+                for pid in qid2pid[qid]:
+                    query = id2queries[qid]
+                    passage = id2passages[pid]
+                    text = query + ' [SEP] ' + passage
+                    ids = tokenizer.encode(text, max_length=max_len, return_tensors='pt', add_special_tokens=True)
+                    pad_ids = torch.zeros([1, max_len - ids.shape[1]])
+                    masks = torch.cat([torch.ones_like(ids).view(1,-1), pad_ids], axis=1).cuda()
+                    ids = torch.cat([ids, pad_ids], axis=1).long().cuda()
+                    with torch.no_grad():
+                        score = model(ids, masks)[0][0].detach().cpu().numpy()
+                        print(score)
+                        pid2score.update({pid:score})
+                res = sorted(pid2score.items(), key=lambda x:x[1], reverse=True)
+                for i in range(len(res)):
+                    pid = res[i][0]
+                    score = res[i][1]
+                    f.writelines(str(qid) + ' ' + 'Q0' + ' ' + str(pid) + ' ' + str(i) + ' ' + str(score) + ' ' + sys_name + '\n')
+    
