@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.lib.shape_base import split
+from torch.utils import data
 from dataset import PQDataset
 from torch.utils.data import DataLoader
 from model import *
@@ -58,36 +60,44 @@ train_triples = parse_triple_file(train_triples_file)
 
 model_name = 'bert-base-uncased'
 bert_config = BertConfig.from_pretrained(model_name)
-#model = BertForSequenceClassification.from_pretrained(model_name).cuda()
 tokenizer = BertTokenizer.from_pretrained(model_name)
 
 #hyper-parameters
 max_len = 160
 batch_size = 10
-epoch = 10
-lr = 1e-5
+epoch = 50
+lr = 1e-6
+gpu_no = 1
 skip_train = False
-sys_name = 'Bert_base'
+#sys_name = 'Bert_base'
+sys_name = 'DPR'
+split_pq = not (sys_name == 'Bert_base')
+padding = not (sys_name == 'BM25')
 dir_out = './test_result/' + sys_name + '/'
 res_file = 'res20'
 os.makedirs(dir_out, exist_ok=True)
 
-dataset = PQDataset(id2passages, id2queries, train_triples, tokenizer, max_len=max_len)
+dataset = PQDataset(id2passages, id2queries, train_triples, gpu_no, tokenizer, max_len=max_len, split=split_pq)
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-model = BertScoringModel(model_name).cuda()
+if sys_name == 'Bert_base':
+    model = BertScoringModel(model_name)
+if sys_name == 'DPR':
+    model = DPRScoringModel(model_name)
+if sys_name == 'BM25':
+    N, Lave, DF = dataset.stat(id2passages)
+    model = BM25ScoringModel(k1=1, k2=1, k3=1, b=0.5, N=N, Lave=Lave, DF=DF)
+model = model.cuda(gpu_no)
 optmizer = torch.optim.Adam(model.parameters(), lr=lr)
 loss_list = []
 
 if not skip_train:
     for e in range(epoch):
-        model.bert.train()
+        model.train()
         for i, [ids, masks, labels] in enumerate(dataloader):
             optmizer.zero_grad()
-            ids = ids.long().cuda()
-            masks = masks.cuda()
-            labels = labels.cuda()
             output = model(ids, masks)
+            #print(output)
             loss = -torch.sum(labels*torch.log(output)+(1-labels)*torch.log(1-output))
             #loss = torch.sum((labels-output)**2)
             loss.backward()
@@ -97,7 +107,7 @@ if not skip_train:
 
         print("finish training epoch " + str(e))
 
-        model.bert.eval()
+        model.eval()
         id2queries, id2passages, qid2pid = parse_top1000_file(test_top_file)
         with open(dir_out + res_file + '_epoch' + str(e), 'w') as f:
             for qid in qid2pid.keys():
@@ -105,11 +115,9 @@ if not skip_train:
                 for pid in qid2pid[qid]:
                     query = id2queries[qid]
                     passage = id2passages[pid]
-                    text = query + ' [SEP] ' + passage
-                    ids = tokenizer.encode(text, max_length=max_len, return_tensors='pt', add_special_tokens=True)
-                    pad_ids = torch.zeros([1, max_len - ids.shape[1]])
-                    masks = torch.cat([torch.ones_like(ids).view(1,-1), pad_ids], axis=1).cuda()
-                    ids = torch.cat([ids, pad_ids], axis=1).long().cuda()
+                    ids, masks = dataset.tokenize_pq(query, passage)
+                    ids = ids.view(1,-1)
+                    masks = masks.view(1,-1)
                     with torch.no_grad():
                         score = model(ids, masks)[0][0].detach().cpu().numpy()
                         print(score)
