@@ -66,7 +66,7 @@ tokenizer = BertTokenizer.from_pretrained(model_name)
 max_len = 160
 batch_size = 10
 epoch = 50
-lr = 1e-6
+lr = 2e-5
 gpu_no = 1
 skip_train = False
 #sys_name = 'Bert_base'
@@ -93,6 +93,7 @@ loss_list = []
 
 if not skip_train:
     for e in range(epoch):
+        
         model.train()
         for i, [ids, masks, labels] in enumerate(dataloader):
             optmizer.zero_grad()
@@ -116,8 +117,12 @@ if not skip_train:
                     query = id2queries[qid]
                     passage = id2passages[pid]
                     ids, masks = dataset.tokenize_pq(query, passage)
-                    ids = ids.view(1,-1)
-                    masks = masks.view(1,-1)
+                    if split_pq:
+                        ids = [x.view(1,-1) for x in ids]
+                        masks = [x.view(1,-1) for x in masks]
+                    else:
+                        ids = ids.view(1,-1)
+                        masks = masks.view(1,-1)
                     with torch.no_grad():
                         score = model(ids, masks)[0][0].detach().cpu().numpy()
                         print(score)
