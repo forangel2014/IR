@@ -1,4 +1,5 @@
 import torch
+import math
 from transformers import BertConfig, BertModel
 
 class BertScoringModel(torch.nn.Module):
@@ -38,17 +39,22 @@ class BM25ScoringModel(torch.nn.Module):
     #def stat(self, id2passages, id2queries):
 
     def forward(self, ids, masks):
-        score = torch.Tensor(0)
-        query_ids = ids[0]
-        passage_ids = ids[1]
-        for id in query_ids:
-            qtf = torch.sum(query_ids == id)
-            ptf = torch.sum(passage_ids == id)
-            Ld = passage_ids.shape[1]
+        score = 0
+        query_ids = ids[0].tolist()[0]
+        passage_ids = ids[1].tolist()[0]
+        qids = list(set(query_ids))
+        for id in qids:
+            qtf = query_ids.count(id)
+            ptf = passage_ids.count(id)
+            Ld = len(passage_ids)
+            if id in self.DF.keys():
+                df = self.DF[id]
+            else:
+                df = 0
             score += (qtf/(self.k3+qtf))* \
                      (self.k1*ptf/(ptf+self.k1*(1-self.b+self.b*Ld/self.Lave)))* \
-                     (torch.log2((self.N - self.DF(id)+0.5)/(self.DF(id)+0.5)))
-        return torch.sigmoid(score)
+                     (math.log2((self.N - df+0.5)/(df+0.5)))
+        return torch.Tensor([score])
 
 class DPRScoringModel(torch.nn.Module):
     

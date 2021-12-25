@@ -1,6 +1,7 @@
 import os
 #sys_name = 'Bert_base'
-sys_name = 'DPR'
+#sys_name = 'DPR'
+sys_name = 'BM25'
 dir_test = './test_result/' + sys_name + '/'
 dir_eval = './eval_result/' + sys_name + '/'
 

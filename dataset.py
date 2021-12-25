@@ -17,13 +17,15 @@ class PQDataset(Dataset):
         Lave = 0
         DF = {}
         for passage in id2passasges.values():
-            ids = self.tokenize(passage, padding=False)
-            Lave += ids.shape[0]
+            ids = self.tokenize(passage, padding=False)[0].tolist()[0]
+            Lave += len(ids)
+            ids = list(set(ids))
             for id in ids:
                 if id in DF.keys():
-                    DF.update({id, DF[id]+1})
+                    DF.update({id:DF[id]+1})
                 else:
                     DF.update({id:1})
+            #break
         Lave /= N
         return N, Lave, DF
 
@@ -37,21 +39,21 @@ class PQDataset(Dataset):
     def tokenize(self, text, padding=True):
         ids = self.tokenizer.encode(text, max_length=self.max_len, return_tensors='pt', add_special_tokens=True)
         if not padding:
-            return ids
+            return ids, None
         else:
             pad_ids = torch.zeros([1, self.max_len - ids.shape[1]])
             masks = torch.cat([torch.ones_like(ids).view(1,-1), pad_ids], axis=1)[0].cuda(self.gpu_no)
             ids = torch.cat([ids, pad_ids], axis=1)[0].long().cuda(self.gpu_no)
             return ids, masks
 
-    def tokenize_pq(self, query, passage):
+    def tokenize_pq(self, query, passage, padding=True):
         if self.split:
-            ids_query, masks_query = self.tokenize(query)
-            ids_passage, masks_passage = self.tokenize(passage)
+            ids_query, masks_query = self.tokenize(query, padding)
+            ids_passage, masks_passage = self.tokenize(passage, padding)
             return [ids_query, ids_passage], [masks_query, masks_passage]
         else:
             text = query + ' [SEP] ' + passage
-            ids_text, masks_text = self.tokenize(text)
+            ids_text, masks_text = self.tokenize(text, padding)
             return ids_text, masks_text
 
     def __getitem__(self, index):
