@@ -6,15 +6,17 @@ from dataset import PQDataset
 from torch.utils.data import DataLoader
 from model import *
 import os
+import random
 from transformers import BertTokenizer, BertConfig
 
-train_passages_file = 'collection.train.sampled.tsv' # qid - query
-train_queries_file = 'queries.train.sampled.tsv' # pid - passage
-train_triples_file = 'qidpidtriples.train.sampled.tsv' # qid - pos_id - neg_id
-validation_top_file = 'msmarco-passagetest2019-43-top1000.tsv' # qid - pid - query - passage
-validation_qrels_file = '2019qrels-pass.txt' # qid - "Q0" - pid - rating
-test_top_file = 'msmarco-passagetest2020-54-top1000.tsv' # qid - pid - query - passage
-test_qrels_file = '2020qrels-pass.txt' # qid - "Q0" - pid - rating
+data_dir = './data/'
+train_passages_file = data_dir + 'collection.train.sampled.tsv' # qid - query
+train_queries_file = data_dir + 'queries.train.sampled.tsv' # pid - passage
+train_triples_file = data_dir + 'qidpidtriples.train.sampled.tsv' # qid - pos_id - neg_id
+validation_top_file = data_dir + 'msmarco-passagetest2019-43-top1000.tsv' # qid - pid - query - passage
+validation_qrels_file = data_dir + '2019qrels-pass.txt' # qid - "Q0" - pid - rating
+test_top_file = data_dir + 'msmarco-passagetest2020-54-top1000.tsv' # qid - pid - query - passage
+test_qrels_file = data_dir + '2020qrels-pass.txt' # qid - "Q0" - pid - rating
 
 def parse_pq_file(filename):
     dict = {}
@@ -67,10 +69,10 @@ def train(model, dataloader, optmizer):
         print(loss)
         #loss_list.append(loss.detach().cpu().numpy())
 
-def eval(model, top_file, e, sys_name):
+def eval(model, top_file, info, sys_name):
     model.eval()
     id2queries, id2passages, qid2pid = parse_top1000_file(top_file)
-    with open(dir_out + res_file + '_epoch' + str(e), 'w') as f:
+    with open(dir_out + res_file + info, 'w') as f:
         for qid in qid2pid.keys():
             pid2score = {}
             for pid in qid2pid[qid]:
@@ -106,13 +108,13 @@ tokenizer = BertTokenizer.from_pretrained(model_name)
 #hyper-parameters
 max_len = 160
 batch_size = 10
-epoch = 50
+epoch = 100
 lr = 1e-5
 gpu_no = 0
 skip_train = False
 #sys_name = 'Bert_base'
-#sys_name = 'DPR'
-sys_name = 'BM25'
+sys_name = 'DPR'
+#sys_name = 'BM25'
 split_pq = not (sys_name == 'Bert_base')
 padding = not (sys_name == 'BM25')
 need_opt = not (sys_name == 'BM25')
@@ -129,7 +131,7 @@ if sys_name == 'DPR':
     model = DPRScoringModel(model_name)
 if sys_name == 'BM25':
     N, Lave, DF = dataset.stat(id2passages)
-    model = BM25ScoringModel(k1=1, k2=1, k3=1, b=0.5, N=N, Lave=Lave, DF=DF)
+    model = BM25ScoringModel(k1=1, k3=1, b=0.5, N=N, Lave=Lave, DF=DF)
 model = model.cuda(gpu_no)
 if need_opt:
     optmizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -139,7 +141,15 @@ if not skip_train and need_opt:
     for e in range(epoch):
         train(model, dataloader, optmizer)
         print("finish training epoch " + str(e))
-        eval(model, test_top_file, e, sys_name)
+        eval(model, test_top_file, '_epoch'+str(e), sys_name)
 else:
-    eval(model, test_top_file, 'final', sys_name)
+    for e in range(epoch):
+        random.seed()
+        k1 = random.random()
+        k3 = random.random()
+        b = random.random()
+        para_info = '-' + str(k1) + '-' + str(k3) + '-' + str(b)
+        print("para search: " + para_info)
+        model = BM25ScoringModel(k1=k1, k3=k3, b=b, N=N, Lave=Lave, DF=DF)
+        eval(model, test_top_file, para_info, sys_name)
     

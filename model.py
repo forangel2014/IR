@@ -24,12 +24,11 @@ class BertScoringModel(torch.nn.Module):
 
 class BM25ScoringModel(torch.nn.Module):
     
-    def __init__(self, k1, k2, k3, b, N, Lave, DF):
+    def __init__(self, k1, k3, b, N, Lave, DF):
 
         super(BM25ScoringModel, self).__init__()
         
         self.k1 = k1
-        self.k2 = k2
         self.k3 = k3
         self.b = b
         self.N = N
