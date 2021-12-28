@@ -4,9 +4,10 @@ def get_common_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--data_dir', type=str, default='./data/', help='data directory')
-    parser.add_argument('--test_dir', type=str, default='./test_results/', help='result test directory')
+    parser.add_argument('--valid_dir', type=str, default='./valid_results/', help='result valid directory')
     parser.add_argument('--eval_dir', type=str, default='./eval_results/', help='result eval directory')
-    parser.add_argument('--result_file', type=str, default='results.txt', help='result file')
+    parser.add_argument('--save_dir', type=str, default='./saves/', help='model saved directory')
+    parser.add_argument('--result_file', type=str, default='results.txt', help='result file name')
     parser.add_argument('--sys_name', type=str, default='Bert', help='IR model name')
     parser.add_argument('--model_name', type=str, default='bert-base-uncased', help='Bert model name')
     parser.add_argument('--device', type=int, default=0, help='GPU device number')

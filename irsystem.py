@@ -23,10 +23,12 @@ class IRSystem(object):
         self.test_top_file = args.data_dir + 'msmarco-passagetest2020-54-top1000.tsv'  # qid-pid-query-passage
         self.test_qrels_file = args.data_dir + '2020qrels-pass.txt'  # qid-"Q0"-pid-rating
 
-        self.test_dir = args.test_dir + args.sys_name + '/'
+        self.valid_dir = args.valid_dir + args.sys_name + '/'
         self.eval_dir = args.eval_dir + args.sys_name + '/'
-        os.makedirs(self.test_dir, exist_ok=True)
+        self.save_dir = args.save_dir + args.sys_name + '/'
+        os.makedirs(self.valid_dir, exist_ok=True)
         os.makedirs(self.eval_dir, exist_ok=True)
+        os.makedirs(self.save_dir, exist_ok=True)
 
         self.split_pq = not (args.sys_name == 'Bert')
         self.padding = not (args.sys_name == 'BM25')
@@ -55,7 +57,7 @@ class IRSystem(object):
             self.model = self.model.cuda(self.args.device)
             self.optimizer = Adam(self.model.parameters(), lr=args.lr)
 
-    def train(self):
+    def train(self, info):
         self.model.train()
         for i, [ids, masks, labels] in enumerate(self.dataloader):
             self.optimizer.zero_grad()
@@ -64,13 +66,15 @@ class IRSystem(object):
             loss.backward()
             self.optimizer.step()
             print('loss: {}'.format(loss.item()))
+            #break
+        th.save(self, self.args.save_dir + info + '.pkl')
         print('training completed.')
 
-    def test(self, info):
+    def valid(self, info):
         self.model.eval()
-        print('start testing.')
-        id2queries, id2passages, qid2pid = parse_top1000_file(self.test_top_file)
-        with open(self.test_dir + info + self.args.result_file, 'w') as f:
+        print('start validating.')
+        id2queries, id2passages, qid2pid = parse_top1000_file(self.validation_top_file)
+        with open(self.valid_dir + info + self.args.result_file, 'w') as f:
             for qid in qid2pid.keys():
                 pid2score = {}
                 for pid in qid2pid[qid]:
@@ -94,15 +98,16 @@ class IRSystem(object):
                     score = res[i][1]
                     f.writelines(str(qid) + ' ' + 'Q0' + ' ' + str(pid) + ' ' +
                                  str(i) + ' ' + str(score) + ' ' + self.args.sys_name + '\n')
-        print('testing completed.')
+        print('validating completed.')
 
     def run(self):
         if self.need_opt:
             for epoch in range(self.args.epoches):
                 print('training epoch {} in total {} epoches'.format(epoch, self.args.epoches))
-                self.train()
                 info = 'epoch_{}_lr_{}_batchsize_{}_'.format(epoch, self.args.lr, self.args.batch_size)
-                self.test(info)
+                print(info)
+                self.train(info)
+                self.valid(info)
         else:
             for epoch in range(self.args.epoches):
                 random.seed()
@@ -112,11 +117,11 @@ class IRSystem(object):
                 info = 'k1_{:.2f}_k3_{:.2f}_b_{:.2f}_'.format(k1, k3, b)
                 print("para search: " + info)
                 self.model.set_paras(k1, k3, b)
-                self.test(info)
-        eval(self.test_dir, self.eval_dir)
+                self.valid(info)
+        eval()
 
 if __name__ == '__main__':
     args = get_common_args()
-    #ir_sys = IRSystem(args)
-    #ir_sys.run()
-    eval()
+    ir_sys = IRSystem(args)
+    ir_sys.run()
+    #eval()
