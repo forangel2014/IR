@@ -117,6 +117,6 @@ class IRSystem(object):
 
 if __name__ == '__main__':
     args = get_common_args()
-    ir_sys = IRSystem(args)
-    ir_sys.run()
-    #eval()
+    #ir_sys = IRSystem(args)
+    #ir_sys.run()
+    eval()

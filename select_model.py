@@ -1,6 +1,6 @@
 import os
 
-def select_model_by_ngct_10(sys_names, opt_file):
+def select_model_by_ngct_10(sys_names = ['Bert', 'DPR', 'BM25'], opt_file = './optimal'):
     opt = []
     for sys_name in sys_names: 
         ls = []
@@ -27,6 +27,4 @@ def select_model_by_ngct_10(sys_names, opt_file):
             f.writelines('\tndcg@10: ' + str(sys[1][0]) + '\n')
 
 if __name__ == '__main__':
-    sys_names = ['Bert', 'DPR', 'BM25']
-    opt_file = './optimal'
-    select_model_by_ngct_10(sys_names, opt_file)
+    select_model_by_ngct_10()
