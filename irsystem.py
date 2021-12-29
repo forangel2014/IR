@@ -5,6 +5,7 @@ from utils.arguments import get_common_args
 from utils.dataset import PQdataset
 from utils.parser import *
 from utils.eval import *
+from utils.select_model import select_model_by_ngct_10
 import os
 import random
 import torch as th
@@ -24,10 +25,10 @@ class IRSystem(object):
         self.test_qrels_file = args.data_dir + '2020qrels-pass.txt'  # qid-"Q0"-pid-rating
 
         self.valid_dir = args.valid_dir + args.sys_name + '/'
-        self.eval_dir = args.eval_dir + args.sys_name + '/'
+        self.test_dir = args.test_dir + args.sys_name + '/'
         self.save_dir = args.save_dir + args.sys_name + '/'
         os.makedirs(self.valid_dir, exist_ok=True)
-        os.makedirs(self.eval_dir, exist_ok=True)
+        os.makedirs(self.test_dir, exist_ok=True)
         os.makedirs(self.save_dir, exist_ok=True)
 
         self.split_pq = not (args.sys_name == 'Bert')
@@ -66,15 +67,13 @@ class IRSystem(object):
             loss.backward()
             self.optimizer.step()
             print('loss: {}'.format(loss.item()))
-            #break
-        th.save(self, self.args.save_dir + info + '.pkl')
+        th.save(self, self.save_dir + info + '.pkl')
         print('training completed.')
 
-    def valid(self, info):
+    def ranking(self, filename, top_file):
         self.model.eval()
-        print('start validating.')
-        id2queries, id2passages, qid2pid = parse_top1000_file(self.validation_top_file)
-        with open(self.valid_dir + info + self.args.result_file, 'w') as f:
+        id2queries, id2passages, qid2pid = parse_top1000_file(top_file)
+        with open(filename, 'w') as f:
             for qid in qid2pid.keys():
                 pid2score = {}
                 for pid in qid2pid[qid]:
@@ -98,7 +97,34 @@ class IRSystem(object):
                     score = res[i][1]
                     f.writelines(str(qid) + ' ' + 'Q0' + ' ' + str(pid) + ' ' +
                                  str(i) + ' ' + str(score) + ' ' + self.args.sys_name + '\n')
-        print('validating completed.')
+
+    def valid(self, info):
+        filename = self.valid_dir + info + self.args.result_file
+        print('start validating ' + filename)
+        top_file = self.validation_top_file
+        self.ranking(filename, top_file)
+        print('validating completed')
+
+    def test(self, opt):
+        for sys in opt:
+            if self.args.sys_name == sys[0]:
+                valid_result = sys[1][0]
+                if self.args.sys_name == 'BM25':
+                    model_file = sys[1][1]
+                    paras = model_file.split('_')
+                    k1 = float(paras[1])
+                    k3 = float(paras[3])
+                    b = float(paras[5])
+                    self.model.set_paras(k1, k3, b)
+                    model = self
+                else:
+                    model_file = self.save_dir + sys[1][1][0:-len(self.args.result_file)] + '.pkl'
+                    model = th.load(model_file)
+                print('start testing ' + model_file)
+                filename = self.test_dir + self.args.result_file
+                top_file = self.test_top_file
+                model.ranking(filename, top_file)
+        print('testing completed')
 
     def run(self):
         if self.need_opt:
@@ -118,10 +144,15 @@ class IRSystem(object):
                 print("para search: " + info)
                 self.model.set_paras(k1, k3, b)
                 self.valid(info)
-        eval()
+        eval(self.args.valid_dir, [self.sys_name])
+        opt = select_model_by_ngct_10()
+        self.test(opt)
+        eval(self.args.test_dir, [self.args.sys_name])
 
 if __name__ == '__main__':
     args = get_common_args()
     ir_sys = IRSystem(args)
     ir_sys.run()
     #eval()
+    #opt = select_model_by_ngct_10()
+    #ir_sys.test(opt)

@@ -4,7 +4,7 @@ def select_model_by_ngct_10(sys_names = ['Bert', 'DPR', 'BM25'], opt_file = './o
     opt = []
     for sys_name in sys_names: 
         ls = []
-        dir_eval = './eval_results/' + sys_name + '/'
+        dir_eval = './valid_results/eval/' + sys_name + '/'
         if not os.path.exists(dir_eval):
             continue
         files = os.listdir(dir_eval)
@@ -25,6 +25,8 @@ def select_model_by_ngct_10(sys_names = ['Bert', 'DPR', 'BM25'], opt_file = './o
             f.writelines(sys[0] + ':\n')
             f.writelines('\tfilename: ' + str(sys[1][1]) + '\n')
             f.writelines('\tndcg@10: ' + str(sys[1][0]) + '\n')
+
+    return opt
 
 if __name__ == '__main__':
     select_model_by_ngct_10()

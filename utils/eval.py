@@ -1,6 +1,7 @@
 import os
 
-def eval(valid_dir='./valid_results/', eval_dir='./eval_results/', sys_names=['Bert', 'DPR', 'BM25']):
+def eval(valid_dir='./valid_results/', sys_names=['Bert', 'DPR', 'BM25']):
+    eval_dir = valid_dir + 'eval/'
     os.makedirs(eval_dir, exist_ok=True)
     for sys_name in sys_names:
         valid_sys_dir = valid_dir + sys_name + '/'
