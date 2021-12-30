@@ -1,7 +1,6 @@
 from models.bm25 import BM25
 from models.dpr import DPR
 from models.bert import Bert
-from utils.arguments import get_common_args
 from utils.dataset import PQdataset
 from utils.parser import *
 from utils.eval import *
@@ -63,7 +62,10 @@ class IRSystem(object):
         for i, [ids, masks, labels] in enumerate(self.dataloader):
             self.optimizer.zero_grad()
             output = self.model(ids, masks)
-            loss = -th.sum(labels * th.log(output) + (1 - labels) * th.log(1 - output))
+            if self.args.sys_name == 'DPR':
+                loss = th.sum((labels - output)**2)
+            else:
+                loss = -th.sum(labels * th.log(output) + (1 - labels) * th.log(1 - output))
             loss.backward()
             self.optimizer.step()
             print('loss: {}'.format(loss.item()))
@@ -144,15 +146,7 @@ class IRSystem(object):
                 print("para search: " + info)
                 self.model.set_paras(k1, k3, b)
                 self.valid(info)
-        eval(self.args.valid_dir, [self.sys_name])
+        eval(self.args.valid_dir, [self.args.sys_name])
         opt = select_model_by_ngct_10()
         self.test(opt)
         eval(self.args.test_dir, [self.args.sys_name])
-
-if __name__ == '__main__':
-    args = get_common_args()
-    ir_sys = IRSystem(args)
-    ir_sys.run()
-    #eval()
-    #opt = select_model_by_ngct_10()
-    #ir_sys.test(opt)
