@@ -123,7 +123,7 @@ class IRSystem(object):
                     model_file = self.save_dir + sys[1][1][0:-len(self.args.result_file)] + '.pkl'
                     model = th.load(model_file)
                 print('start testing ' + model_file)
-                filename = self.test_dir + self.args.result_file
+                filename = self.test_dir + sys[1][1]
                 top_file = self.test_top_file
                 model.ranking(filename, top_file)
         print('testing completed')
@@ -146,7 +146,7 @@ class IRSystem(object):
                 print("para search: " + info)
                 self.model.set_paras(k1, k3, b)
                 self.valid(info)
-        eval(self.args.valid_dir, [self.args.sys_name])
+        eval(self.args.valid_dir, self.validation_qrels_file, [self.args.sys_name])
         opt = select_model_by_ngct_10()
         self.test(opt)
-        eval(self.args.test_dir, [self.args.sys_name])
+        eval(self.args.test_dir, self.test_qrels_file, [self.args.sys_name])

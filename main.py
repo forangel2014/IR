@@ -10,4 +10,4 @@ if __name__ == '__main__':
     #opt = select_model_by_ngct_10()
     
     #ir_sys.test(opt)
-    #eval(args.test_dir, [args.sys_name])
+    #eval(ir_sys.args.test_dir, ir_sys.test_qrels_file, [args.sys_name])
