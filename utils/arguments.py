@@ -15,7 +15,7 @@ def get_common_args():
     parser.add_argument('--max_len', type=int, default=160, help='maximum sentence length')
     parser.add_argument('--epoches', type=int, default=10, help='training epoch number')
     parser.add_argument('--batch_size', type=int, default=10, help='training batch size')
-    parser.add_argument('--lr', type=float, default=1e-5, help='learning rate')
+    parser.add_argument('--lr', type=float, default=1e-6, help='learning rate')
 
     parser.add_argument('--k1', type=float, default=1, help='k1 in BM25 formula')
     parser.add_argument('--k3', type=float, default=1, help='k3 in BM25 formula')

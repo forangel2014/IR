@@ -1,0 +1,9 @@
+Bert:
+	filename: epoch_7_lr_1e-06_batchsize_10_results.txt
+	ndcg@10: 0.6631
+DPR:
+	filename: epoch_4_lr_1e-06_batchsize_10_results.txt
+	ndcg@10: 0.5079
+BM25:
+	filename: k1_0.45_k3_0.51_b_0.29_results.txt
+	ndcg@10: 0.4658
